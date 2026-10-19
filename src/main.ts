@@ -14,6 +14,7 @@ import { SanitizationPipe } from './common/pipes/sanitization.pipe';
 import { SentryInterceptor } from './common/interceptors/sentry.interceptor';
 import { buildCspConnectSrc } from './common/security/csp.config';
 import { CORS_ALLOWED_HEADERS } from './common/security/cors.config';
+import { parseTrustProxy } from './common/security/trust-proxy.config';
 import {
   ONE_YEAR_SECONDS,
   SECONDS_PER_DAY,
@@ -31,6 +32,19 @@ async function bootstrap(): Promise<INestApplication> {
   app.useLogger(jsonLogger);
 
   const configService = app.get(ConfigService);
+
+  // ── Reverse proxy trust (issue #971) ──────────────────────────────────────
+  // Behind a load balancer req.ip is the balancer's address, so every client
+  // shares one throttle bucket. TRUST_PROXY tells Express which X-Forwarded-For
+  // hops to honour. Unset leaves Express's default, which trusts no proxy.
+  const trustProxy = configService.get('TRUST_PROXY');
+  const trustProxySetting = trustProxy ? parseTrustProxy(trustProxy) : null;
+  if (trustProxySetting !== null) {
+    (app.getHttpAdapter().getInstance() as express.Express).set(
+      'trust proxy',
+      trustProxySetting,
+    );
+  }
 
   const sentryDsn = configService.get<string | undefined>('SENTRY_DSN');
   const connectSrc = buildCspConnectSrc({

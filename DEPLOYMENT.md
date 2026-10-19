@@ -152,6 +152,15 @@ readinessProbe:
 
 Load balancers (AWS ALB, GCP LB, nginx, etc.) should poll **`/health/ready`** (not `/health/live`) so an instance with a database outage is taken out of the pool instead of returning 5xx to real users.
 
+### Client IP Behind a Load Balancer
+
+Behind a load balancer, `req.ip` is the balancer's address, so every user shares one rate-limit bucket. Set `TRUST_PROXY` so the app reads the real client address from `X-Forwarded-For`:
+
+- `TRUST_PROXY=1` when exactly one proxy sits in front of the app (the common case).
+- A comma-separated list of addresses or CIDR ranges, such as `10.0.0.0/8`, when the proxy addresses are known.
+
+Leave it unset when no proxy is in front of the app. Trusting `X-Forwarded-For` without a proxy lets any client choose its own IP.
+
 The application service waits for both PostgreSQL and Redis to be healthy before starting, preventing crash-loops due to unavailable dependencies.
 
 ### Resource Limits

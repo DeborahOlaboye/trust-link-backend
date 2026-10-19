@@ -69,6 +69,8 @@ export interface Config {
   REFRESH_TOKEN_TTL?: number;
   SENTRY_DSN?: string;
   GIT_SHA?: string;
+  /** #971 — Trusted proxy setting; see common/security/trust-proxy.config. */
+  TRUST_PROXY?: string;
   EVIDENCE_UPLOAD_LIMIT?: number;
   EVIDENCE_UPLOAD_TTL?: number;
   SOROBAN_RPC_URL?: string;

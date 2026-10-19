@@ -1,5 +1,9 @@
 import * as Joi from 'joi';
 import { Keypair } from '@stellar/stellar-sdk';
+import {
+  parseTrustProxy,
+  TRUST_PROXY_ERROR,
+} from '../common/security/trust-proxy.config';
 
 /**
  * Single source of truth for environment validation.
@@ -297,6 +301,15 @@ export const configValidationSchema = Joi.object({
     otherwise: Joi.string().uri().allow('').optional(),
   }),
   GIT_SHA: Joi.string().optional(),
+  // #971 — Behind a load balancer, req.ip is the balancer's address and every
+  // client shares one throttle bucket. Off unless set; see trust-proxy.config.
+  TRUST_PROXY: Joi.string()
+    .custom((value: string, helpers) =>
+      parseTrustProxy(value) === null
+        ? helpers.message({ custom: TRUST_PROXY_ERROR })
+        : value,
+    )
+    .optional(),
   AUTH_CHALLENGE_LIMIT: Joi.number().integer().min(1).default(10),
   AUTH_CHALLENGE_WINDOW: Joi.number().integer().min(1000).default(60000),
   PUBLIC_LIMIT: Joi.number().integer().min(1).default(60),
