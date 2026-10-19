@@ -2,7 +2,6 @@ import './sentry.instrument';
 import { shutdownTracing } from './tracing/tracing.bootstrap';
 import './common/bigint-json';
 import { NestFactory, INestApplication } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import compression from 'compression';
 import * as express from 'express';
 import helmet from 'helmet';
@@ -10,11 +9,10 @@ import { AppModule } from './app.module';
 import { ConfigService } from './config/config.service';
 import { JsonLoggerService } from './common/logger/json-logger.service';
 import { createOpenApiDocument, setupOpenApiUi } from './openapi';
-import { SanitizationPipe } from './common/pipes/sanitization.pipe';
+import { createGlobalPipes } from './common/pipes/global-pipes';
 import { SentryInterceptor } from './common/interceptors/sentry.interceptor';
 import { buildCspConnectSrc } from './common/security/csp.config';
-import { CORS_ALLOWED_HEADERS } from './common/security/cors.config';
-import { parseTrustProxy } from './common/security/trust-proxy.config';
+import { CORS_ALLOWED_HEADERS, CORS_EXPOSED_HEADERS } from './common/security/cors.config';
 import {
   ONE_YEAR_SECONDS,
   SECONDS_PER_DAY,
@@ -140,6 +138,7 @@ async function bootstrap(): Promise<INestApplication> {
       },
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: CORS_ALLOWED_HEADERS,
+      exposedHeaders: CORS_EXPOSED_HEADERS,
       credentials: true,
       maxAge: SECONDS_PER_DAY,
     });
@@ -157,15 +156,7 @@ async function bootstrap(): Promise<INestApplication> {
     app.useGlobalInterceptors(new SentryInterceptor());
   }
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-    new SanitizationPipe(),
-  );
+  app.useGlobalPipes(...createGlobalPipes());
 
   const document = createOpenApiDocument(app);
   setupOpenApiUi(app, document, isProduction);
@@ -179,7 +170,12 @@ async function bootstrap(): Promise<INestApplication> {
       port,
       env: configService.get('NODE_ENV'),
       network: configService.get('STELLAR_NETWORK'),
-      allowedOrigins: allowedOrigins.length > 0 ? allowedOrigins : 'all',
+      allowedOrigins:
+        allowedOrigins.length > 0
+          ? allowedOrigins
+          : isProduction
+            ? 'none'
+            : 'all',
       cspConnectSrc: connectSrc,
     }),
     'Bootstrap',
