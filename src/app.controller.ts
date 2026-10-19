@@ -17,7 +17,7 @@ import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { THROTTLE_WINDOW_MS } from './common/security/throttle.config';
 import type { Response } from 'express';
 import { AppService } from './app.service';
-import { getAppVersion } from './common/version';
+import { getAppName, getAppVersion } from './common/version';
 import { ConfigService } from './config/config.service';
 import { PrismaService } from './prisma/prisma.service';
 import { CacheService } from './cache/cache.service';
@@ -283,10 +283,12 @@ export class AppController {
   @Get('version')
   @HttpCode(HttpStatus.OK)
   getVersion(): VersionResponseDto {
+    const commit = this.configService.get('GIT_SHA');
     return {
       version: getAppVersion(),
-      name: '@truestlink/trustlink-backend',
+      name: getAppName(),
       environment: this.configService.get('NODE_ENV'),
+      ...(commit ? { commit } : {}),
     };
   }
 
